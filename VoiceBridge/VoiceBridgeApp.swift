@@ -1,32 +1,35 @@
-//
-//  VoiceBridgeApp.swift
-//  VoiceBridge
-//
-//  Created by YanDong Li on 3/21/26.
-//
-
 import SwiftUI
-import SwiftData
 
 @main
 struct VoiceBridgeApp: App {
-    var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            Item.self,
-        ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
-        do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
-        } catch {
-            fatalError("Could not create ModelContainer: \(error)")
+    @State private var feishu = FeishuClient.shared
+
+    init() {
+        FeishuClient.shared.onTextReceived = { text in
+            TextInjector.shared.inject(text)
         }
-    }()
+        FeishuClient.shared.connectWithStoredCredentials()
+    }
 
     var body: some Scene {
-        WindowGroup {
-            ContentView()
+        MenuBarExtra("VoiceBridge", systemImage: menuBarIcon) {
+            MenuBarView()
         }
-        .modelContainer(sharedModelContainer)
+
+        Settings {
+            SettingsView()
+        }
+    }
+
+    private var menuBarIcon: String {
+        switch feishu.state {
+        case .connected:
+            return "mic.fill"
+        case .connecting, .reconnecting:
+            return "mic.and.signal.meter"
+        case .disconnected:
+            return "mic.slash"
+        }
     }
 }
