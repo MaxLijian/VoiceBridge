@@ -59,7 +59,7 @@ final class FeishuClient {
               !secret.isEmpty else {
             return
         }
-        PermissionManager.shared.requestAccessibilityIfNeeded()
+        PermissionManager.shared.requestAccessibility()
         connect(appId: appId, appSecret: secret)
     }
 
