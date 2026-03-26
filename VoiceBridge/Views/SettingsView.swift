@@ -6,33 +6,55 @@ struct SettingsView: View {
     @State private var appSecret = ""
     @State private var feishu = FeishuClient.shared
     @State private var saved = false
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         Form {
             Section("飞书配置") {
-                TextField("App ID", text: $appId)
-                SecureField("App Secret", text: $appSecret)
-
-                HStack {
-                    Button("保存并连接") {
-                        saveAndConnect()
+                if appId.isEmpty {
+                    VStack(spacing: 12) {
+                        Image(systemName: "bubble.left.and.text.bubble.right")
+                            .font(.system(size: 32))
+                            .foregroundColor(.secondary)
+                        Text("还未配置飞书机器人")
+                            .foregroundColor(.secondary)
+                        Button("一键创建机器人") {
+                            openWindow(id: "setup")
+                        }
+                        .buttonStyle(.borderedProminent)
                     }
-                    .disabled(appId.isEmpty || appSecret.isEmpty)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                } else {
+                    TextField("App ID", text: $appId)
+                    SecureField("App Secret", text: $appSecret)
 
-                    if saved {
-                        Text("已保存")
-                            .foregroundColor(.green)
-                            .font(.caption)
+                    HStack {
+                        Button("保存并连接") {
+                            saveAndConnect()
+                        }
+                        .disabled(appId.isEmpty || appSecret.isEmpty)
+
+                        if saved {
+                            Text("已保存")
+                                .foregroundColor(.green)
+                                .font(.caption)
+                        }
+
+                        Spacer()
+
+                        statusBadge
                     }
 
-                    Spacer()
-
-                    statusBadge
+                    Button("重新创建机器人") {
+                        openWindow(id: "setup")
+                    }
+                    .font(.caption)
                 }
             }
         }
         .formStyle(.grouped)
-        .frame(width: 420, height: 220)
+        .frame(width: 420, height: appId.isEmpty ? 220 : 240)
         .onAppear {
             if let data = KeychainHelper.load(for: "feishuAppSecret"),
                let secret = String(data: data, encoding: .utf8) {

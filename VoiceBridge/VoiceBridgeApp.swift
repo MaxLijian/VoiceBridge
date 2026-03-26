@@ -17,6 +17,21 @@ struct VoiceBridgeApp: App {
             MenuBarView()
         }
 
+        Window("创建飞书机器人", id: "setup") {
+            SetupView { appId, appSecret in
+                // 备份旧凭据
+                backupCredentials()
+                // 保存新凭据
+                UserDefaults.standard.set(appId, forKey: "feishuAppId")
+                if let data = appSecret.data(using: .utf8) {
+                    _ = KeychainHelper.save(data, for: "feishuAppSecret")
+                }
+                feishu.disconnect()
+                feishu.connect(appId: appId, appSecret: appSecret)
+            }
+        }
+        .windowResizability(.contentSize)
+
         Settings {
             SettingsView()
         }
@@ -30,6 +45,16 @@ struct VoiceBridgeApp: App {
             return "mic.and.signal.meter"
         case .disconnected:
             return "mic.slash"
+        }
+    }
+
+    private func backupCredentials() {
+        let oldAppId = UserDefaults.standard.string(forKey: "feishuAppId") ?? ""
+        guard !oldAppId.isEmpty else { return }
+
+        UserDefaults.standard.set(oldAppId, forKey: "feishuAppId.backup")
+        if let oldSecret = KeychainHelper.load(for: "feishuAppSecret") {
+            _ = KeychainHelper.save(oldSecret, for: "feishuAppSecret.backup")
         }
     }
 }
