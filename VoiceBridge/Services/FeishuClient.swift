@@ -57,10 +57,6 @@ final class FeishuClient {
         connect(appId: bot.appId, appSecret: secret)
     }
 
-    func connect(bot: BotConfiguration, secret: String) {
-        connect(appId: bot.appId, appSecret: secret)
-    }
-
     func connect(appId: String, appSecret: String) {
         self.appId = appId
         self.appSecret = appSecret

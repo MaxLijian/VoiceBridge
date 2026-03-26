@@ -1,5 +1,4 @@
 import SwiftUI
-import CoreImage.CIFilterBuiltins
 
 struct OnboardingView: View {
 
@@ -50,6 +49,7 @@ struct OnboardingView: View {
                 }
             }
         }
+        .onDisappear { permissions.stopPolling() }
     }
 
     // MARK: - 步骤指示器
@@ -204,7 +204,7 @@ struct OnboardingView: View {
                     .frame(width: 200, height: 200)
 
             case .waitingForScan, .polling:
-                if let qrImage = generateQRCode(from: qrURL) {
+                if let qrImage = QRCodeGenerator.generate(from: qrURL) {
                     Image(nsImage: qrImage)
                         .interpolation(.none)
                         .resizable()
@@ -229,14 +229,8 @@ struct OnboardingView: View {
                 }
                 .buttonStyle(.link)
 
-            case .success(let appId, let appSecret):
-                // 自动保存并跳转完成页
-                Color.clear.onAppear {
-                    let bot = BotConfiguration(name: "我的语音助手", appId: appId)
-                    BotManager.shared.addBot(bot, secret: appSecret)
-                    FeishuClient.shared.connect(appId: appId, appSecret: appSecret)
-                    currentStep = .complete
-                }
+            case .success:
+                ProgressView()
 
             case .failed(let message):
                 Image(systemName: "xmark.circle.fill")
@@ -256,6 +250,12 @@ struct OnboardingView: View {
         .onDisappear { registration.cancel() }
         .onChange(of: registration.state) { _, newState in
             if case .waitingForScan(let url, _) = newState { qrURL = url }
+            if case .success(let appId, let appSecret) = newState {
+                let bot = BotConfiguration(name: "我的语音助手", appId: appId)
+                BotManager.shared.addBot(bot, secret: appSecret)
+                FeishuClient.shared.connect(appId: appId, appSecret: appSecret)
+                currentStep = .complete
+            }
         }
     }
 
@@ -312,18 +312,4 @@ struct OnboardingView: View {
         }
     }
 
-    // MARK: - QR Code
-
-    private func generateQRCode(from string: String) -> NSImage? {
-        guard !string.isEmpty else { return nil }
-        let filter = CIFilter.qrCodeGenerator()
-        filter.message = Data(string.utf8)
-        filter.correctionLevel = "M"
-        guard let ciImage = filter.outputImage else { return nil }
-        let scaled = ciImage.transformed(by: CGAffineTransform(scaleX: 10, y: 10))
-        let rep = NSCIImageRep(ciImage: scaled)
-        let nsImage = NSImage(size: rep.size)
-        nsImage.addRepresentation(rep)
-        return nsImage
-    }
 }

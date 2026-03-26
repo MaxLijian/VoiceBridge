@@ -1,6 +1,5 @@
 import SwiftUI
 import ServiceManagement
-import CoreImage.CIFilterBuiltins
 
 struct SettingsView: View {
 
@@ -213,7 +212,7 @@ struct AddBotSheet: View {
                     .frame(width: 200, height: 200)
 
             case .waitingForScan, .polling:
-                if let qrImage = generateQRCode(from: qrURL) {
+                if let qrImage = QRCodeGenerator.generate(from: qrURL) {
                     Image(nsImage: qrImage)
                         .interpolation(.none)
                         .resizable()
@@ -267,16 +266,4 @@ struct AddBotSheet: View {
         }
     }
 
-    private func generateQRCode(from string: String) -> NSImage? {
-        guard !string.isEmpty else { return nil }
-        let filter = CIFilter.qrCodeGenerator()
-        filter.message = Data(string.utf8)
-        filter.correctionLevel = "M"
-        guard let ciImage = filter.outputImage else { return nil }
-        let scaled = ciImage.transformed(by: CGAffineTransform(scaleX: 10, y: 10))
-        let rep = NSCIImageRep(ciImage: scaled)
-        let nsImage = NSImage(size: rep.size)
-        nsImage.addRepresentation(rep)
-        return nsImage
-    }
 }

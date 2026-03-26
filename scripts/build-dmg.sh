@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
+command -v create-dmg >/dev/null 2>&1 || { echo "Error: create-dmg not found. Install: brew install create-dmg"; exit 1; }
+
 # VoiceBridge DMG 构建脚本
 # 用法: ./scripts/build-dmg.sh
 
@@ -54,7 +56,8 @@ xcodebuild -exportArchive \
 
 # Step 3: Notarize
 echo "[3/5] Notarizing..."
-xcrun notarytool submit "$APP_PATH" \
+ditto -c -k --keepParent "$APP_PATH" "$BUILD_DIR/$SCHEME.zip"
+xcrun notarytool submit "$BUILD_DIR/$SCHEME.zip" \
     --keychain-profile "notarytool-profile" \
     --wait
 
