@@ -52,15 +52,13 @@ final class FeishuClient {
     // MARK: - Public API
 
     func connectWithStoredCredentials() {
-        let appId = UserDefaults.standard.string(forKey: "feishuAppId") ?? ""
-        guard !appId.isEmpty,
-              let secretData = KeychainHelper.load(for: "feishuAppSecret"),
-              let secret = String(data: secretData, encoding: .utf8),
-              !secret.isEmpty else {
-            return
-        }
-        PermissionManager.shared.requestAccessibility()
-        connect(appId: appId, appSecret: secret)
+        guard let bot = BotManager.shared.bots.first(where: { $0.isEnabled }),
+              let secret = BotManager.shared.secret(for: bot) else { return }
+        connect(appId: bot.appId, appSecret: secret)
+    }
+
+    func connect(bot: BotConfiguration, secret: String) {
+        connect(appId: bot.appId, appSecret: secret)
     }
 
     func connect(appId: String, appSecret: String) {
