@@ -1,0 +1,124 @@
+<h2>首次启动引导流程</h2>
+<p class="subtitle">Setup Wizard — 用户必须完成所有步骤才能正常使用</p>
+
+<div class="section">
+  <h3>整体流程</h3>
+  <div style="display:flex; align-items:center; gap:12px; margin:20px 0; flex-wrap:wrap;">
+    <div style="background:#2563eb; color:white; padding:12px 20px; border-radius:12px; font-weight:600; min-width:140px; text-align:center;">
+      Step 1<br><span style="font-size:13px; opacity:0.9;">欢迎 & 权限授权</span>
+    </div>
+    <div style="font-size:24px; color:#666;">→</div>
+    <div style="background:#2563eb; color:white; padding:12px 20px; border-radius:12px; font-weight:600; min-width:140px; text-align:center;">
+      Step 2<br><span style="font-size:13px; opacity:0.9;">创建飞书机器人</span>
+    </div>
+    <div style="font-size:24px; color:#666;">→</div>
+    <div style="background:#16a34a; color:white; padding:12px 20px; border-radius:12px; font-weight:600; min-width:140px; text-align:center;">
+      完成 🎉<br><span style="font-size:13px; opacity:0.9;">自动连接 & 使用说明</span>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Step 1: 欢迎 & 权限授权</h3>
+  <div class="mockup">
+    <div class="mockup-header">Setup Wizard — Step 1</div>
+    <div class="mockup-body" style="padding:30px; text-align:center;">
+      <div style="font-size:48px; margin-bottom:16px;">🎙️</div>
+      <h2 style="margin:0 0 8px 0;">欢迎使用 VoiceBridge</h2>
+      <p style="color:#888; margin:0 0 24px 0;">让手机变成你的 Mac 语音键盘</p>
+
+      <div style="background:#1e293b; border-radius:12px; padding:20px; text-align:left; margin:0 auto; max-width:360px;">
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+          <div style="width:32px; height:32px; border-radius:8px; background:#2563eb; display:flex; align-items:center; justify-content:center; color:white; font-size:14px;">⌨️</div>
+          <div>
+            <div style="font-weight:600; color:#e2e8f0;">辅助功能权限</div>
+            <div style="font-size:12px; color:#94a3b8;">用于检测焦点位置并插入文本</div>
+          </div>
+          <div style="margin-left:auto;">
+            <span style="background:#dc2626; color:white; padding:3px 10px; border-radius:20px; font-size:12px;">未授权</span>
+          </div>
+        </div>
+
+        <div style="text-align:center;">
+          <button style="background:#2563eb; color:white; border:none; padding:10px 28px; border-radius:8px; font-size:14px; cursor:pointer;">授权辅助功能权限</button>
+        </div>
+        <p style="font-size:11px; color:#64748b; text-align:center; margin:12px 0 0 0;">点击后会打开系统设置，请在列表中找到 VoiceBridge 并开启</p>
+      </div>
+
+      <div style="margin-top:24px;">
+        <button style="background:#334155; color:#64748b; border:none; padding:10px 28px; border-radius:8px; font-size:14px;" disabled>下一步（请先完成授权）</button>
+      </div>
+    </div>
+  </div>
+  <p style="color:#94a3b8; font-size:13px; margin-top:8px;">• 授权完成后，状态变为绿色"已授权"，"下一步"按钮激活<br>• 实时检测权限状态（用户在系统设置中操作后自动更新）</p>
+</div>
+
+<div class="section">
+  <h3>Step 2: 创建飞书机器人</h3>
+  <div class="mockup">
+    <div class="mockup-header">Setup Wizard — Step 2</div>
+    <div class="mockup-body" style="padding:30px; text-align:center;">
+      <h3 style="margin:0 0 8px 0;">创建你的飞书机器人</h3>
+      <p style="color:#888; margin:0 0 20px 0;">用飞书扫描下方二维码，填写机器人名称即可</p>
+
+      <div style="width:200px; height:200px; background:white; border-radius:12px; margin:0 auto 16px; display:flex; align-items:center; justify-content:center;">
+        <div style="width:160px; height:160px; background:repeating-conic-gradient(#000 0% 25%, #fff 0% 50%) 50%/16px 16px; border-radius:4px; opacity:0.3;"></div>
+      </div>
+
+      <button style="background:transparent; color:#60a5fa; border:1px solid #60a5fa; padding:6px 16px; border-radius:6px; font-size:13px; cursor:pointer;">在浏览器中打开</button>
+
+      <div style="margin-top:20px;">
+        <div style="display:inline-flex; align-items:center; gap:8px; color:#f59e0b;">
+          <span>⏳</span> 等待扫码授权...
+        </div>
+      </div>
+    </div>
+  </div>
+  <p style="color:#94a3b8; font-size:13px; margin-top:8px;">• 这一步复用现有的 FeishuAppRegistration 流程<br>• 扫码成功后自动获取凭据，进入完成页面</p>
+</div>
+
+<div class="section">
+  <h3>完成页面</h3>
+  <div class="mockup">
+    <div class="mockup-header">Setup Wizard — 完成</div>
+    <div class="mockup-body" style="padding:30px; text-align:center;">
+      <div style="font-size:48px; margin-bottom:16px;">✅</div>
+      <h2 style="margin:0 0 8px 0;">一切就绪！</h2>
+      <p style="color:#888; margin:0 0 24px 0;">VoiceBridge 已连接并在菜单栏运行</p>
+
+      <div style="background:#1e293b; border-radius:12px; padding:20px; text-align:left; max-width:320px; margin:0 auto;">
+        <h4 style="color:#e2e8f0; margin:0 0 12px 0;">使用方法</h4>
+        <div style="display:flex; gap:12px; align-items:flex-start; margin-bottom:12px;">
+          <span style="color:#60a5fa; font-weight:bold; min-width:20px;">1.</span>
+          <span style="color:#cbd5e1; font-size:14px;">在 Mac 上点击任意输入框</span>
+        </div>
+        <div style="display:flex; gap:12px; align-items:flex-start; margin-bottom:12px;">
+          <span style="color:#60a5fa; font-weight:bold; min-width:20px;">2.</span>
+          <span style="color:#cbd5e1; font-size:14px;">打开飞书，给机器人发送语音或文字</span>
+        </div>
+        <div style="display:flex; gap:12px; align-items:flex-start;">
+          <span style="color:#60a5fa; font-weight:bold; min-width:20px;">3.</span>
+          <span style="color:#cbd5e1; font-size:14px;">文字会自动出现在 Mac 的光标位置</span>
+        </div>
+      </div>
+
+      <div style="margin-top:24px;">
+        <button style="background:#2563eb; color:white; border:none; padding:10px 28px; border-radius:8px; font-size:14px; cursor:pointer;">开始使用</button>
+      </div>
+    </div>
+  </div>
+  <p style="color:#94a3b8; font-size:13px; margin-top:8px;">• 点击"开始使用"关闭窗口，应用退到菜单栏<br>• 此时已自动连接飞书 WebSocket</p>
+</div>
+
+<div class="section">
+  <h3>强制引导逻辑</h3>
+  <div style="background:#1e293b; border-radius:8px; padding:16px; font-family:monospace; font-size:13px; color:#e2e8f0;">
+    <div style="color:#64748b;">// 每次 App 启动时检查</div>
+    <div>if !辅助功能已授权 || !机器人已配置 {</div>
+    <div style="padding-left:20px;">显示 Setup Wizard</div>
+    <div style="padding-left:20px; color:#64748b;">// 根据已完成的步骤自动跳到对应 Step</div>
+    <div>} else {</div>
+    <div style="padding-left:20px;">正常启动 → 菜单栏 + 自动连接</div>
+    <div>}</div>
+  </div>
+</div>

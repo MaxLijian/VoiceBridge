@@ -28,8 +28,7 @@ struct MenuBarView: View {
             let needsOnboarding = !PermissionManager.shared.isAccessibilityGranted
                 || !BotManager.shared.isConfigured
             if needsOnboarding {
-                // TODO: Task 8 will add AppDelegate
-                // (NSApp.delegate as? AppDelegate)?.showOnboarding()
+                (NSApp.delegate as? AppDelegate)?.showOnboarding()
             }
         }
     }
