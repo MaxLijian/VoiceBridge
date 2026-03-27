@@ -3,27 +3,19 @@ import SwiftUI
 struct MenuBarView: View {
 
     @State private var feishu = FeishuClient.shared
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Label(statusText, systemImage: "circle.fill")
-                .foregroundColor(statusColor)
-                .padding(.horizontal, 12)
-                .padding(.top, 8)
-
-            Divider()
-
-            SettingsLink {
-                Text("设置...")
+        // 状态 (将原本的视图包装为 Button，防止系统将其渲染为灰色的禁用状态)
+        Button(action: {
+            // 提供重新连接的便捷入口
+            if case .disconnected = feishu.state {
+                FeishuClient.shared.connectWithStoredCredentials()
             }
-            .keyboardShortcut(",", modifiers: [.command])
-
-            Button("退出 VoiceBridge") {
-                NSApplication.shared.terminate(nil)
-            }
-            .keyboardShortcut("q", modifiers: [.command])
+        }) {
+            // 全面拥抱原生底层：使用自带固定色彩的 Emoji 解决系统对图像的强行去色模板化机制
+            statusView
         }
-        .padding(.vertical, 4)
         .onAppear {
             let needsOnboarding = !PermissionManager.shared.isAccessibilityGranted
                 || !BotManager.shared.isConfigured
@@ -31,22 +23,38 @@ struct MenuBarView: View {
                 (NSApp.delegate as? AppDelegate)?.showOnboarding()
             }
         }
-    }
 
-    private var statusText: String {
-        switch feishu.state {
-        case .disconnected: return "未连接"
-        case .connecting: return "连接中..."
-        case .connected: return "已连接"
-        case .reconnecting(let attempt): return "重连中 (\(attempt))..."
+        Divider()
+
+        // 设置
+        Button("设置...") {
+            openSettings()
         }
+        .keyboardShortcut(",", modifiers: .command)
+
+        // 退出
+        Button("退出 VoiceBridge") {
+            NSApplication.shared.terminate(nil)
+        }
+        .keyboardShortcut("q", modifiers: .command)
     }
 
-    private var statusColor: Color {
+    // MARK: - 状态
+
+    private var statusView: Text {
+        // 适当缩小 Emoji 的尺寸，并略微上移对齐中线，使其更像一个精致的小圆点
+        let dotSize: CGFloat = 10
+        let offset: CGFloat = 0.5
+        
         switch feishu.state {
-        case .disconnected: return .secondary
-        case .connecting, .reconnecting: return .orange
-        case .connected: return .green
+        case .disconnected:
+            return Text("\(Text("⚪️").font(.system(size: dotSize)).baselineOffset(offset)) 未连接")
+        case .connecting:
+            return Text("\(Text("🟠").font(.system(size: dotSize)).baselineOffset(offset)) 连接中...")
+        case .connected:
+            return Text("\(Text("🟢").font(.system(size: dotSize)).baselineOffset(offset)) 已连接")
+        case .reconnecting(let attempt):
+            return Text("\(Text("🟠").font(.system(size: dotSize)).baselineOffset(offset)) 重连中 (\(attempt))...")
         }
     }
 }

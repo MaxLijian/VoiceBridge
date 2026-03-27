@@ -16,6 +16,7 @@ struct VoiceBridgeApp: App {
         MenuBarExtra("VoiceBridge", systemImage: menuBarIcon) {
             MenuBarView()
         }
+        .menuBarExtraStyle(.menu)
 
         Settings {
             SettingsView()
