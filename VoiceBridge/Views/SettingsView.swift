@@ -95,7 +95,7 @@ struct SettingsView: View {
             AddBotSheet()
         }
         .onAppear {
-            NSApp.activate(ignoringOtherApps: true)
+            NSApp.activate()
             permissions.refreshStatus()
         }
     }

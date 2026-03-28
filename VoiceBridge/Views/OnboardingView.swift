@@ -38,7 +38,7 @@ struct OnboardingView: View {
         }
         .frame(width: 480, height: 520)
         .onAppear {
-            NSApp.activate(ignoringOtherApps: true)
+            NSApp.activate()
             permissions.refreshStatus()
             // 自动跳到未完成的步骤
             if permissions.isAccessibilityGranted {
