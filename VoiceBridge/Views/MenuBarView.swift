@@ -29,6 +29,11 @@ struct MenuBarView: View {
         // 设置
         Button("设置...") {
             openSettings()
+            // 菜单栏应用无 Dock 图标，需显式激活才能将已打开的设置窗口置顶
+            // async 延迟到下一轮 RunLoop，确保 openSettings() 创建的窗口已就位
+            DispatchQueue.main.async {
+                NSApp.activate()
+            }
         }
         .keyboardShortcut(",", modifiers: .command)
 
