@@ -7,8 +7,33 @@ command -v create-dmg >/dev/null 2>&1 || { echo "Error: create-dmg not found. In
 # 用法: ./scripts/build-dmg.sh [version]
 # 示例: ./scripts/build-dmg.sh 1.0.0
 # 不传版本号则默认为 "dev"
+#
+# 环境变量:
+#   CODE_SIGN_IDENTITY  - 签名身份 (例: "Developer ID Application: Name (TEAMID)")
+#   DEVELOPMENT_TEAM    - Apple 开发者团队 ID (例: "ABCDE12345")
 
 VERSION="${1:-dev}"
+
+# 签名配置：优先使用环境变量，未设置则自动检测本地 Developer ID 证书
+if [ -z "${CODE_SIGN_IDENTITY:-}" ]; then
+    CODE_SIGN_IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | sed 's/.*"\(.*\)".*/\1/' || true)
+    if [ -z "$CODE_SIGN_IDENTITY" ]; then
+        echo "Error: No Developer ID Application certificate found."
+        echo "Either install a Developer ID certificate or set CODE_SIGN_IDENTITY env var."
+        exit 1
+    fi
+fi
+
+if [ -z "${DEVELOPMENT_TEAM:-}" ]; then
+    DEVELOPMENT_TEAM=$(echo "$CODE_SIGN_IDENTITY" | grep -o '([A-Z0-9]*)' | tr -d '()' || true)
+    if [ -z "$DEVELOPMENT_TEAM" ]; then
+        echo "Error: Cannot extract Team ID. Set DEVELOPMENT_TEAM env var."
+        exit 1
+    fi
+fi
+
+echo "Signing identity: $CODE_SIGN_IDENTITY"
+echo "Team ID: $DEVELOPMENT_TEAM"
 
 SCHEME="VoiceBridge"
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -64,8 +89,8 @@ xcodebuild archive \
     -archivePath "$ARCHIVE_PATH" \
     -configuration Release \
     CODE_SIGN_STYLE=Manual \
-    CODE_SIGN_IDENTITY="Developer ID Application: YanDong Li (97ZLXJHDD3)" \
-    DEVELOPMENT_TEAM=97ZLXJHDD3 \
+    CODE_SIGN_IDENTITY="$CODE_SIGN_IDENTITY" \
+    DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" \
     "${VERSION_OVERRIDES[@]}"
 
 # Step 2: Export

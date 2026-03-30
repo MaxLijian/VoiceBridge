@@ -15,6 +15,12 @@ xcuserdata/
 Packages/
 Package.resolved
 
+# Certificates
+*.p12
+*.cer
+.env
+.env.*
+
 # Superpowers
 .superpowers/
 docs/superpowers/
