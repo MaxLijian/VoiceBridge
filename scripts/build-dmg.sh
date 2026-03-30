@@ -45,13 +45,11 @@ if [ "${CI:-}" = "true" ]; then
     echo "[CI] Certificate imported."
 fi
 
-# 同步版本号到 Xcode 项目
+# 构建版本参数
+VERSION_OVERRIDES=()
 if [ "$VERSION" != "dev" ]; then
-    echo "[*] Setting version to $VERSION..."
-    cd "$PROJECT_DIR"
-    agvtool new-marketing-version "$VERSION"
-    agvtool new-version -all "${VERSION//[^0-9.]/}"
-    cd - > /dev/null
+    echo "[*] Will build with version $VERSION"
+    VERSION_OVERRIDES=(MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$VERSION")
 fi
 
 # 清理旧构建
@@ -66,7 +64,8 @@ xcodebuild archive \
     -archivePath "$ARCHIVE_PATH" \
     -configuration Release \
     CODE_SIGN_STYLE=Automatic \
-    | tail -1
+    DEVELOPMENT_TEAM=97ZLXJHDD3 \
+    "${VERSION_OVERRIDES[@]}"
 
 # Step 2: Export
 echo "[2/5] Exporting..."
@@ -87,8 +86,7 @@ PLIST
 xcodebuild -exportArchive \
     -archivePath "$ARCHIVE_PATH" \
     -exportPath "$EXPORT_PATH" \
-    -exportOptionsPlist "$BUILD_DIR/ExportOptions.plist" \
-    | tail -1
+    -exportOptionsPlist "$BUILD_DIR/ExportOptions.plist"
 
 # Step 3: Notarize
 echo "[3/5] Notarizing..."
