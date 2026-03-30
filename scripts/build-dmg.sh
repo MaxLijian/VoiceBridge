@@ -63,7 +63,8 @@ xcodebuild archive \
     -scheme "$SCHEME" \
     -archivePath "$ARCHIVE_PATH" \
     -configuration Release \
-    CODE_SIGN_STYLE=Automatic \
+    CODE_SIGN_STYLE=Manual \
+    CODE_SIGN_IDENTITY="Developer ID Application: YanDong Li (97ZLXJHDD3)" \
     DEVELOPMENT_TEAM=97ZLXJHDD3 \
     "${VERSION_OVERRIDES[@]}"
 
