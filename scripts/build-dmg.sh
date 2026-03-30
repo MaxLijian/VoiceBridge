@@ -91,7 +91,7 @@ xcodebuild archive \
     CODE_SIGN_STYLE=Manual \
     CODE_SIGN_IDENTITY="$CODE_SIGN_IDENTITY" \
     DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" \
-    "${VERSION_OVERRIDES[@]}"
+    ${VERSION_OVERRIDES[@]+"${VERSION_OVERRIDES[@]}"}
 
 # Step 2: Export
 echo "[2/5] Exporting..."
