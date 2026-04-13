@@ -8,20 +8,16 @@ final class TextInjector {
     private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "VoiceBridge",
                                 category: "TextInjector")
 
-    private static let textInputRoles: Set<String> = [
-        kAXTextFieldRole as String,
-        kAXTextAreaRole as String,
-        kAXComboBoxRole as String,
-        "AXWebArea",
-    ]
-
     private init() {}
 
     func inject(_ text: String) {
         logger.info("开始注入文本，长度: \(text.count)")
 
         guard let element = focusedTextElement() else {
-            logger.warning("当前无活跃输入框，丢弃文本")
+            logger.warning("Accessibility API 无法检测焦点输入框，尝试剪贴板")
+            // 备选方案：直接用剪贴板+Cmd+V（用于 VS Code 等 Accessibility 支持不完整的应用）
+            injectViaClipboard(text)
+            logger.info("剪贴板兜底注入完成")
             return
         }
 
@@ -30,13 +26,35 @@ final class TextInjector {
             return
         }
 
-        logger.warning("Accessibility API 失败，降级到 Apple Events")
-        if injectViaAppleScript(text) {
-            logger.info("Apple Events 注入成功")
+        // Accessibility API 失败
+        // 检测当前应用，判断是否需要用剪贴板而不是 keystroke
+        let focusedApp = NSWorkspace.shared.frontmostApplication
+        let bundleID = focusedApp?.bundleIdentifier ?? ""
+        let appName = focusedApp?.localizedName ?? ""
+        let isElectron = bundleID.contains("Electron") || appName.contains("Code") || 
+                         bundleID.contains("com.microsoft.VSCode") ||
+                         bundleID == "app.doodto.VoiceBridge"  // 防递归
+        
+        let isASCII = text.unicodeScalars.allSatisfy({ $0.value < 128 })
+        
+        if isElectron {
+            logger.debug("检测到 Electron 应用（\(appName)）或 VS Code，直接使用剪贴板")
+            injectViaClipboard(text)
+            logger.info("剪贴板注入完成")
             return
         }
 
-        logger.warning("Apple Events 失败，降级到剪贴板")
+        if isASCII {
+            logger.warning("Accessibility API 失败，降级到 Apple Events")
+            if injectViaAppleScript(text) {
+                logger.info("Apple Events 注入成功")
+                return
+            }
+        } else {
+            logger.debug("非 ASCII 文本，跳过 Apple Events keystroke，直接使用剪贴板")
+        }
+
+        logger.warning("降级到剪贴板")
         injectViaClipboard(text)
         logger.info("剪贴板注入完成")
     }
@@ -55,30 +73,12 @@ final class TextInjector {
 
         // AXUIElement is a CFTypeRef, always succeeds from AX API
         let element = focusedRef as! AXUIElement
-
-        var role: AnyObject?
-        AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &role)
-
-        guard let roleStr = role as? String,
-              Self.textInputRoles.contains(roleStr) else {
-            return nil
-        }
-
         return element
     }
 
     // MARK: - 第一层：Accessibility API
 
     private func injectViaAccessibility(_ text: String, element: AXUIElement) -> Bool {
-        // Electron / Web 视图的 AX API 返回 success 但实际不生效
-        var domClass: AnyObject?
-        if AXUIElementCopyAttributeValue(element,
-                                         "AXDOMClassList" as CFString,
-                                         &domClass) == .success {
-            logger.debug("检测到 Web 视图输入框，跳过 AX 注入")
-            return false
-        }
-
         var settable: DarwinBoolean = false
         guard AXUIElementIsAttributeSettable(element,
                                              kAXSelectedTextAttribute as CFString,

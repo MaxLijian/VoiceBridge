@@ -59,6 +59,45 @@ The menu bar icon shows the connection status:
 - **No-focus-target guard** — silently discards text when no input field is focused
 - **Secure credential storage** — App Secret stored in macOS Keychain
 
+## Recent Improvements (v1.1+)
+
+### Full Chinese/CJK Support & Electron App Compatibility
+
+Fixed critical issues with text injection in Electron-based applications (VS Code, Feishu Desktop, etc.) and CJK character handling:
+
+#### Problems Solved
+- **Chinese text corruption** — AppleScript `keystroke` only supports ASCII; non-ASCII characters turned into pinyin first letters or garbled text
+- **Electron apps (VS Code, Copilot Chat)** — Accessibility API couldn't detect focused input fields, causing text to be silently dropped  
+- **Mixed text input** — inconsistent behavior across app types and character sets
+
+#### Solution
+**Three-layer fallback injection with intelligence:**
+1. **Accessibility API** — tried first for native macOS apps (most reliable, clipboard-free)
+2. **Apple Events keystroke** — only for ASCII text in non-Electron apps (avoids corruption)
+3. **Clipboard + Cmd+V** — used for:
+   - Electron/VS Code applications (auto-detected)
+   - Non-ASCII text (Chinese, Japanese, Korean, emoji, etc.)
+   - Any Accessibility API failures (fallback)
+
+#### Impact Matrix
+| Scenario | English | 中文/CJK |
+|----------|---------|----------|
+| Terminal | ✅ keystroke | ✅ clipboard |
+| Memo/Notes | ✅ AX API | ✅ AX API |
+| VS Code Chat | ✅ clipboard | ✅ clipboard |
+| VS Code Terminal | ✅ clipboard | ✅ clipboard |
+| Feishu/Douyin | ✅ clipboard | ✅ clipboard |
+
+#### Technical Changes
+- Modified `focusedTextElement()` to use fallback when Accessibility API fails
+- Enhanced `inject()` logic to detect Electron apps and non-ASCII characters
+- Removed premature checks that blocked valid input fields
+- Added clipboard injection as primary strategy for Electron + non-ASCII combinations
+
+#### Build Notes
+- Compile with ad-hoc signing if needed: `codesign --force --deep --sign - app`
+- No special entitlements required beyond standard Accessibility access
+
 ## Requirements
 
 - macOS 13+
