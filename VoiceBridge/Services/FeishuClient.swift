@@ -52,9 +52,23 @@ final class FeishuClient {
     // MARK: - Public API
 
     func connectWithStoredCredentials() {
-        guard let bot = BotManager.shared.bots.first(where: { $0.isEnabled }),
-              let secret = BotManager.shared.secret(for: bot) else { return }
-        connect(appId: bot.appId, appSecret: secret)
+        let enabledBots = BotManager.shared.bots.filter { $0.isEnabled }
+
+        guard !enabledBots.isEmpty else {
+            logger.info("未找到启用中的机器人，跳过连接")
+            return
+        }
+
+        for bot in enabledBots {
+            if let secret = BotManager.shared.secret(for: bot), !secret.isEmpty {
+                logger.info("使用已保存凭据连接机器人: \(bot.name) (\(bot.appId))")
+                connect(appId: bot.appId, appSecret: secret)
+                return
+            }
+            logger.warning("机器人缺少 Secret，暂时跳过: \(bot.name) (\(bot.appId))")
+        }
+
+        logger.error("存在启用机器人但未读取到可用 Secret，连接未启动")
     }
 
     func connect(appId: String, appSecret: String) {

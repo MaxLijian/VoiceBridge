@@ -37,8 +37,12 @@ struct VoiceBridgeApp: App {
 final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var onboardingWindow: NSWindow?
+    private var workspaceObserver: NSObjectProtocol?
+    private var appActiveObserver: NSObjectProtocol?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        registerLifecycleObservers()
+
         let needsOnboarding = !PermissionManager.shared.isAccessibilityGranted
             || !BotManager.shared.isConfigured
 
@@ -46,6 +50,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             showOnboarding()
         } else {
             FeishuClient.shared.connectWithStoredCredentials()
+        }
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        if let workspaceObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(workspaceObserver)
+        }
+        if let appActiveObserver {
+            NotificationCenter.default.removeObserver(appActiveObserver)
         }
     }
 
@@ -72,5 +85,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         window.makeKeyAndOrderFront(nil)
         NSApp.activate()
         self.onboardingWindow = window
+    }
+
+    private func registerLifecycleObservers() {
+        workspaceObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.sessionDidBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.ensureConnectedIfPossible()
+        }
+
+        appActiveObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.ensureConnectedIfPossible()
+        }
+    }
+
+    private func ensureConnectedIfPossible() {
+        guard onboardingWindow == nil,
+              PermissionManager.shared.isAccessibilityGranted,
+              BotManager.shared.isConfigured else {
+            return
+        }
+
+        if case .disconnected = FeishuClient.shared.state {
+            FeishuClient.shared.connectWithStoredCredentials()
+        }
     }
 }

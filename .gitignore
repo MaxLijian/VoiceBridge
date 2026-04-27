@@ -21,6 +21,9 @@ Package.resolved
 .env
 .env.*
 
+# Local runtime config
+bots.json
+
 # Superpowers
 .superpowers/
 docs/superpowers/
