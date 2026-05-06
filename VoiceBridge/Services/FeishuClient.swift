@@ -32,6 +32,7 @@ final class FeishuClient {
     private var reconnectNonce: TimeInterval = 5
     private var currentReconnectAttempt = 0
     private var shouldReconnect = false
+    private var pendingReconnectWorkItem: DispatchWorkItem?
 
     private var appId: String = ""
     private var appSecret: String = ""
@@ -43,7 +44,10 @@ final class FeishuClient {
     private let dedupMaxEntries = 2000
     private let messageExpirySeconds: TimeInterval = 1800
 
-    private let session = URLSession(configuration: .default)
+    // 健康检查
+    private var healthCheckTimer: Timer?
+    private let healthCheckInterval: TimeInterval = 60
+
     private let jsonDecoder = JSONDecoder()
     private static let endpointURL = URL(string: "https://open.feishu.cn/callback/ws/endpoint")!
 
@@ -72,6 +76,14 @@ final class FeishuClient {
     }
 
     func connect(appId: String, appSecret: String) {
+        // 取消所有待执行的重连任务，防止多次重连叠加
+        cancelPendingReconnect()
+
+        // 关闭旧的 WebSocket 连接
+        webSocketTask?.cancel(with: .goingAway, reason: nil)
+        webSocketTask = nil
+        stopPingTimer()
+
         self.appId = appId
         self.appSecret = appSecret
         shouldReconnect = true
@@ -81,7 +93,9 @@ final class FeishuClient {
 
     func disconnect() {
         shouldReconnect = false
+        cancelPendingReconnect()
         stopPingTimer()
+        stopHealthCheck()
         webSocketTask?.cancel(with: .goingAway, reason: nil)
         webSocketTask = nil
         state = .disconnected
@@ -113,10 +127,14 @@ final class FeishuClient {
     // MARK: - 获取 WebSocket URL
 
     private func fetchEndpoint() async throws -> URL {
+        // 每次请求使用独立 session，避免旧连接残留状态
+        let session = URLSession(configuration: .default)
+
         var request = URLRequest(url: Self.endpointURL)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("zh", forHTTPHeaderField: "locale")
+        request.timeoutInterval = 30
 
         let body: [String: String] = ["AppID": appId, "AppSecret": appSecret]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -125,6 +143,20 @@ final class FeishuClient {
 
         let statusCode = (httpResponse as? HTTPURLResponse)?.statusCode ?? 0
         logger.info("Endpoint 响应 HTTP \(statusCode), body=\(String(data: data, encoding: .utf8) ?? "<binary>")")
+
+        // token 失效时服务器返回非 0 code，重连一次
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let code = (json["code"] as? Int) ?? (json["Code"] as? Int),
+           code != 0 {
+            let msg = (json["msg"] as? String) ?? (json["Msg"] as? String) ?? "unknown"
+            logger.warning("Endpoint 返回错误 code=\(code): \(msg)")
+
+            // 指数退避重试：等待一段时间后重新获取 endpoint（token 可能已刷新）
+            if currentReconnectAttempt == 0 {
+                try await Task.sleep(nanoseconds: 1_000_000_000)
+                return try await fetchEndpoint()
+            }
+        }
 
         guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw FeishuError.invalidResponse
@@ -141,9 +173,7 @@ final class FeishuClient {
             throw FeishuError.invalidResponse
         }
 
-        let wsURLString = (dataDict["URL"] as? String)
-            ?? (dataDict["url"] as? String)
-            ?? ""
+        let wsURLString = (dataDict["url"] as? String) ?? ""
         guard !wsURLString.isEmpty, let wsURL = URL(string: wsURLString) else {
             throw FeishuError.invalidResponse
         }
@@ -164,6 +194,8 @@ final class FeishuClient {
     // MARK: - WebSocket 连接
 
     private func connectWebSocket(url: URL) async throws {
+        // 每次连接使用独立 session，防止旧 WebSocket 残留干扰
+        let session = URLSession(configuration: .default)
         let task = session.webSocketTask(with: url)
         self.webSocketTask = task
         task.resume()
@@ -173,6 +205,7 @@ final class FeishuClient {
         logger.info("WebSocket 已连接")
 
         startPingTimer()
+        startHealthCheck()
         receiveLoop()
     }
 
@@ -342,14 +375,44 @@ final class FeishuClient {
     }
 
     private func sendPing() {
+        guard let task = webSocketTask else { return }
+
         var frame = PBFrame()
         frame.method = 0
         frame.headers = [PBHeader(key: "type", value: "ping")]
 
         let data = PBEncoder.encodeFrame(frame)
-        webSocketTask?.send(.data(data)) { [weak self] error in
+        task.send(.data(data)) { [weak self] error in
             if let error {
                 self?.logger.error("Ping 发送失败: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    // MARK: - 健康检查（主动检测 WebSocket 是否存活）
+
+    private func startHealthCheck() {
+        stopHealthCheck()
+        healthCheckTimer = Timer.scheduledTimer(withTimeInterval: healthCheckInterval, repeats: true) { [weak self] _ in
+            self?.performHealthCheck()
+        }
+    }
+
+    private func stopHealthCheck() {
+        healthCheckTimer?.invalidate()
+        healthCheckTimer = nil
+    }
+
+    private func performHealthCheck() {
+        guard shouldReconnect, case .connected = state else { return }
+
+        // 主动 ping 服务器，期望收到 pong。如果发送失败则认为连接已断
+        webSocketTask?.sendPing { [weak self] error in
+            DispatchQueue.main.async {
+                if let error {
+                    self?.logger.warning("健康检查 ping 失败: \(error.localizedDescription)，主动触发重连")
+                    self?.handleDisconnect()
+                }
             }
         }
     }
@@ -358,6 +421,7 @@ final class FeishuClient {
 
     private func handleDisconnect() {
         stopPingTimer()
+        stopHealthCheck()
         webSocketTask = nil
 
         guard shouldReconnect else {
@@ -369,6 +433,9 @@ final class FeishuClient {
     }
 
     private func scheduleReconnect() {
+        // 取消任何已在排队的重连，防止多次定时器叠加
+        cancelPendingReconnect()
+
         if reconnectCount >= 0 && currentReconnectAttempt >= reconnectCount {
             logger.error("重连次数已耗尽 (\(self.reconnectCount))")
             state = .disconnected
@@ -384,9 +451,17 @@ final class FeishuClient {
 
         logger.info("将在 \(String(format: "%.1f", delay))s 后重连 (第 \(self.currentReconnectAttempt) 次)")
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.pendingReconnectWorkItem = nil
             self?.startConnection()
         }
+        pendingReconnectWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
+    }
+
+    private func cancelPendingReconnect() {
+        pendingReconnectWorkItem?.cancel()
+        pendingReconnectWorkItem = nil
     }
 }
 

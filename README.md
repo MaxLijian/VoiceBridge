@@ -59,9 +59,34 @@ The menu bar icon shows the connection status:
 - **No-focus-target guard** — silently discards text when no input field is focused
 - **Secure credential storage** — App Secret stored in macOS Keychain
 
-## Recent Improvements (v1.1+)
+## Recent Improvements (v1.2+)
 
-### Full Chinese/CJK Support & Electron App Compatibility
+### Connection Stability & Reconnection Fixes
+
+Fixed long-running connection drop issues where VoiceBridge would silently stop receiving messages while appearing connected.
+
+#### Problems Solved
+- **Token expiry not handled** — When Feishu token expired during long sessions, the WebSocket would be closed by the server but the client state could remain stuck in "connected" without recovering
+- **Reconnect token reuse** — Automatic reconnection reused the same credentials without forcing a fresh token fetch, leading to repeated failures
+- **Reconnect timer accumulation** — Multiple `asyncAfter` timers could stack up during repeated failures, causing unpredictable reconnection spikes
+- **No active liveness check** — The client only detected disconnection when data arrived, not when the underlying WebSocket died silently
+
+#### Solution
+1. **Token expiry retry** — When `fetchEndpoint` returns a non-zero code, wait 1 second and retry once (token may have refreshed since the last attempt)
+2. **Independent session per connection** — Each `fetchEndpoint` and `connectWebSocket` call uses a fresh `URLSession`, preventing stale state from interfering
+3. **Reconnect timer deduplication** — `connect()` cancels any pending `asyncAfter` before starting; `scheduleReconnect()` also cancels previous timers before scheduling a new one
+4. **Active health check** — Every 60 seconds, a ping is sent to the server. If the ping fails, the connection is immediately torn down and reconnected — no waiting for the server to close it first
+5. **`connect()` cleanup** — Now cancels any existing WebSocket task and stops the ping timer before starting a new connection, preventing state leaks between reconnection attempts
+
+#### Impact
+| Scenario | Before | After |
+|----------|--------|-------|
+| Token expires after 2h | Stuck connected, no messages | Auto-refresh and recover |
+| Network hiccup | Multiple stacked timers, unpredictable retry | Single clean retry |
+| WebSocket dies silently | Wait for timeout | Active ping detects within 60s |
+| App woken from sleep | May not recover | `ensureConnectedIfPossible` fires on wake |
+
+### v1.1: Full Chinese/CJK Support & Electron App Compatibility
 
 Fixed critical issues with text injection in Electron-based applications (VS Code, Feishu Desktop, etc.) and CJK character handling:
 
