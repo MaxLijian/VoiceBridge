@@ -94,39 +94,32 @@ Pre-route all major browsers to the clipboard + AppleScript `keystroke "v"` path
 
 ### VS Code & Web-Based App Injection Fix
 
-Fixed text injection failures in VS Code and web-based apps (e.g. Doubao / 豆包).
+### Connection Stability & Reconnection Fixes
 
-#### Root Causes
+Fixed long-running connection drop issues where VoiceBridge would silently stop receiving messages while appearing connected.
 
-1. **AX false-success in VS Code** — The Accessibility API accepted the `kAXSelectedTextAttribute` write and returned `.success`, but text never appeared in the editor. The app now pre-routes VS Code (and VSCodium / VS Code Insiders) directly to the clipboard path, skipping the AX attempt entirely.
+#### Problems Solved
+- **Token expiry not handled** — When Feishu token expired during long sessions, the WebSocket would be closed by the server but the client state could remain stuck in "connected" without recovering
+- **Reconnect token reuse** — Automatic reconnection reused the same credentials without forcing a fresh token fetch, leading to repeated failures
+- **Reconnect timer accumulation** — Multiple `asyncAfter` timers could stack up during repeated failures, causing unpredictable reconnection spikes
+- **No active liveness check** — The client only detected disconnection when data arrived, not when the underlying WebSocket died silently
 
-2. **Race condition with Electron/WebView clipboard** — `NSPasteboard.setString` followed by an immediate `CGEvent` Cmd+V meant the paste event arrived before the clipboard change had propagated to the target process. Added an 80 ms delay between the write and the paste keystroke so Electron/WebView renderers reliably read the new content.
+#### Solution
+1. **Token expiry retry** — When `fetchEndpoint` returns a non-zero code, wait 1 second and retry once (token may have refreshed since the last attempt)
+2. **Independent session per connection** — Each `fetchEndpoint` and `connectWebSocket` call uses a fresh `URLSession`, preventing stale state from interfering
+3. **Reconnect timer deduplication** — `connect()` cancels any pending `asyncAfter` before starting; `scheduleReconnect()` also cancels previous timers before scheduling a new one
+4. **Active health check** — Every 60 seconds, a ping is sent to the server. If the ping fails, the connection is immediately torn down and reconnected — no waiting for the server to close it first
+5. **`connect()` cleanup** — Now cancels any existing WebSocket task and stops the ping timer before starting a new connection, preventing state leaks between reconnection attempts
 
-3. **Paste event routing** — Switched from posting to `.cghidEventTap` (global HID queue) to `CGEvent.postToPid(_:)`, which delivers Cmd+V directly to the foreground app's PID. This prevents the event from being absorbed by a wrong window in multi-window setups.
+#### Impact
+| Scenario | Before | After |
+|----------|--------|-------|
+| Token expires after 2h | Stuck connected, no messages | Auto-refresh and recover |
+| Network hiccup | Multiple stacked timers, unpredictable retry | Single clean retry |
+| WebSocket dies silently | Wait for timeout | Active ping detects within 60s |
+| App woken from sleep | May not recover | `ensureConnectedIfPossible` fires on wake |
 
-#### Impact Matrix (updated)
-
-| App | English | 中文/CJK |
-|-----|---------|----------|
-| Notes / Memo | ✅ AX API | ✅ AX API |
-| Browser input | ✅ AX API | ✅ AX API |
-| Terminal | ✅ keystroke | ✅ clipboard |
-| VS Code editor | ✅ clipboard | ✅ clipboard |
-| VS Code terminal | ✅ clipboard | ✅ clipboard |
-| Doubao / 豆包 | ✅ clipboard | ✅ clipboard |
-| Feishu Desktop | ✅ clipboard | ✅ clipboard |
-
-#### Technical Changes (`TextInjector.swift`)
-
-- Added `shouldForceClipboard(bundleID:appName:)` — pre-checks bundle IDs matching VS Code family and known Electron apps before any AX call
-- `injectViaClipboard` now accepts a `targetPID: pid_t?` and delays the paste event by 80 ms
-- `simulatePaste(toPID:)` uses `CGEvent.postToPid(_:)` for direct process delivery
-
----
-
-## Previous Improvements (v1.1)
-
-### Full Chinese/CJK Support & Electron App Compatibility
+### v1.1: Full Chinese/CJK Support & Electron App Compatibility
 
 Fixed critical issues with text injection in Electron-based applications (VS Code, Feishu Desktop, etc.) and CJK character handling:
 
