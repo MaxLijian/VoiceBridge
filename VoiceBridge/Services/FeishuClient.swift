@@ -173,7 +173,7 @@ final class FeishuClient {
             throw FeishuError.invalidResponse
         }
 
-        let wsURLString = (dataDict["url"] as? String) ?? ""
+        let wsURLString = (dataDict["url"] as? String) ?? (dataDict["URL"] as? String) ?? ""
         guard !wsURLString.isEmpty, let wsURL = URL(string: wsURLString) else {
             throw FeishuError.invalidResponse
         }
